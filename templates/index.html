@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Next-Generation Deep Fake News Detection</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+            background-color: #f4f7fc;
+        }
+        .container {
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 40px;
+            background-color: #ffffff;
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.1);
+            border-radius: 15px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2.8em;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        form {
+            margin-bottom: 40px;
+        }
+        input[type="file"] {
+            padding: 12px;
+            font-size: 1.1em;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            width: 100%;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 15px 25px;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: white;
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 40px;
+            display: none;
+            text-align: left;
+        }
+        #result p {
+            font-size: 1.3em;
+            color: #555;
+            margin-bottom: 15px;
+        }
+        .image-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin-top: 30px;
+        }
+        img {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        #upload-another {
+            margin-top: 25px;
+            background-color: #ff6347;
+            padding: 12px 25px;
+            font-size: 1.1em;
+            border-radius: 8px;
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: none;
+        }
+        #upload-another:hover {
+            background-color: #e55347;
+        }
+
+        /* Loading Animation */
+        #loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .spinner {
+            border: 5px solid rgba(0, 0, 0, 0.1);
+            border-top: 5px solid #4CAF50;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Next-Generation Deep Fake Face Detection</h1>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" id="fileInput" name="file" accept="image/*" required />
+            <button type="submit">Predict</button>
+        </form>
+
+        <!-- Loading Animation -->
+        <div id="loading">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+
+        <div id="result">
+            <p><strong>Prediction:</strong> <span id="prediction"></span></p>
+            <p><strong>Probability:</strong> <span id="probability"></span></p>
+            
+            <h3>Prediction vs Model Accuracy</h3>
+            <canvas id="accuracyChart"></canvas>
+
+            <h3>Explanation Results</h3>
+            <div class="image-container">
+                <div>
+                    <h4>LIME Explanation</h4>
+                    <img id="limeImage" src="" alt="LIME explanation will appear here">
+                </div>
+                <div>
+                    <h4>SHAP Explanation</h4>
+                    <img id="shapImage" src="" alt="SHAP explanation will appear here">
+                </div>
+            </div>
+            <div class="image-container" style="margin-top: 20px;">
+                <div>
+                    <h4>Model Loss</h4>
+                    <img src="static/1.jpg" alt="Additional Image 1" />
+                </div>
+                <div>
+                    <h4>Model Accuracy</h4>
+                    <img src="static/2.jpg" alt="Additional Image 2" />
+                </div>
+            </div>
+            <button id="upload-another">Upload Another Image</button>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const resultSection = document.getElementById('result');
+        const loadingSection = document.getElementById('loading');
+        const uploadAnotherBtn = document.getElementById('upload-another');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('fileInput');
+            if (!fileInput.files.length) {
+                alert('Please select a file before submitting.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            // Show loading animation and hide result
+            loadingSection.style.display = 'block';
+            resultSection.style.display = 'none';
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Prediction failed');
+                }
+
+                const result = await response.json();
+
+                if (result.error) {
+                    alert(result.error);
+                } else {
+                    document.getElementById('prediction').textContent = result.prediction;
+                    document.getElementById('probability').textContent = result.probability.toFixed(2);
+
+                    // Update chart
+                    const ctx = document.getElementById('accuracyChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Model Accuracy', 'Prediction Probability'],
+                            datasets: [{
+                                label: 'Values',
+                                data: [result.model_accuracy, result.probability],
+                                backgroundColor: ['#4CAF50', '#FF6347'],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: { beginAtZero: true, max: 1 }
+                            }
+                        }
+                    });
+
+                    // Update images
+                    document.getElementById('limeImage').src = result.lime_path;
+                    document.getElementById('shapImage').src = result.shap_path;
+
+                    // Hide loading animation and show result
+                    loadingSection.style.display = 'none';
+                    resultSection.style.display = 'block';
+                    uploadAnotherBtn.style.display = 'inline-block';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while processing the image.');
+            } finally {
+                loadingSection.style.display = 'none';
+            }
+        });
+
+        uploadAnotherBtn.addEventListener('click', () => {
+            window.location.reload();
+        });
+    </script>
+</body>
+</html>
